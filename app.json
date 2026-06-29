@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "TrackMe",
-    "slug": "TrackMe",
+    "slug": "trackme",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -39,6 +39,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "bf5004a8-5282-437d-bdbf-b717b37d3b65"
+      }
+    },
+    "owner": "rajtiwari0612s-team"
   }
 }
