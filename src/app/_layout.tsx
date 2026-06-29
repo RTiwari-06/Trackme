@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Stack } from 'expo-router'
 import { supabase } from '../services/supabase'
 import { useAuthStore } from '../store'
+import ErrorBoundary from '../components/ErrorBoundary'
 
 export default function RootLayout() {
   const { user, session, setUser, setSession, setIsLoading } = useAuthStore()
@@ -73,7 +74,8 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack
+    <ErrorBoundary>
+      <Stack
       screenOptions={{
         headerShown: true,
         headerStyle: {
@@ -103,5 +105,6 @@ export default function RootLayout() {
         />
       )}
     </Stack>
+    </ErrorBoundary>
   )
 }

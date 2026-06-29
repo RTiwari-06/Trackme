@@ -28,17 +28,44 @@ export default function MapScreen() {
     initializeLocation()
   }, [])
 
+  // Request foreground and background permissions and optionally register geofences
   async function initializeLocation() {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync()
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location permission is required')
+      const { status: fgStatus } = await Location.requestForegroundPermissionsAsync()
+      if (fgStatus !== 'granted') {
+        Alert.alert('Permission Denied', 'Foreground location permission is required')
         return
+      }
+
+      // Background permission request (Android/iOS separate flows)
+      const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync()
+      if (bgStatus !== 'granted') {
+        // Continue with foreground-only tracking but inform the user
+        Alert.alert(
+          'Background Permission Recommended',
+          'Allow background location so tracking continues when app is closed. You can enable it in app settings.'
+        )
       }
 
       const location = await getCurrentLocation()
       if (location) {
         setCurrentLocation(location)
+      }
+
+      // Example: register a geofence around current location (optional)
+      // NOTE: This is a strategy placeholder — implement production-ready geofence management
+      try {
+        const geofenceRegion = {
+          identifier: 'home-area',
+          latitude: location?.latitude || 0,
+          longitude: location?.longitude || 0,
+          radius: 200, // meters
+        }
+        // expo-location doesn't provide an out-of-the-box geofence manager cross-platform.
+        // Consider platform-specific APIs or a lightweight in-app geofence check in the background task.
+        // e.g., save geofenceRegion to storage and evaluate in the background location task.
+      } catch (gErr) {
+        console.warn('Geofence setup skipped:', gErr)
       }
     } catch (err) {
       console.error('Failed to initialize location:', err)
