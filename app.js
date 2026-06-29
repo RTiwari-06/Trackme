@@ -16,7 +16,7 @@ const translations = {
     btnGetStarted: "Get Started",
     
     // Home Screen
-    welcomeUser: "Welcome, Raj",
+    welcomeUser: "Welcome, {{userName}}",
     travelerSub: "Where are you heading today?",
     destLabel: "SELECT DESTINATION",
     destHome: "Home",
@@ -28,11 +28,11 @@ const translations = {
     // Watcher Screen
     watcherLabel: "SHARE WITH WATCHER",
     cMom: "Mom",
-    cMomSub: "+91 98765 43210 (WhatsApp)",
+    cMomSub: "+91 [REDACTED] (WhatsApp)",
     cDad: "Dad",
-    cDadSub: "+91 98765 43211 (SMS Fallback)",
+    cDadSub: "+91 [REDACTED] (SMS Fallback)",
     cBrother: "Rahul (Brother)",
-    cBrotherSub: "+91 98765 43212 (WhatsApp)",
+    cBrotherSub: "+91 [REDACTED] (WhatsApp)",
     btnStartJourney: "Start Journey & Share Link",
     
     // Active Tracking
@@ -48,7 +48,7 @@ const translations = {
     // Arrived
     arrivedTitle: "Reached safely",
     arrivedSub: "Your watcher was notified and your tracking link has automatically expired.",
-    arrivedLog: "WhatsApp sent: '✅ Raj has reached safely at [TIME]. The link has expired.'",
+    arrivedLog: "WhatsApp sent: '✅ {{userName}} has reached safely at [TIME]. The link has expired.'",
     btnNewJourney: "Start New Journey",
     
     // Watcher View
@@ -601,11 +601,11 @@ function updateWatcherUI() {
   const detailsSpan = document.getElementById('watcherHeadingDetail');
   
   if (isArrived) {
-    nameSpan.innerText = "Raj";
+    nameSpan.innerText = (window.__TRACKME_USER_NAME__ || 'Traveler');
     const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     detailsSpan.innerText = `${dict.watcherHeadingArrived} ${nowStr}`;
   } else {
-    nameSpan.innerText = "Raj";
+    nameSpan.innerText = (window.__TRACKME_USER_NAME__ || 'Traveler');
     const destName = state.destination === 'home' ? dict.destHome : dict.destCollege;
     detailsSpan.innerText = `${dict.watcherHeadingActive} ${destName}`;
   }
@@ -618,7 +618,7 @@ function updateWatcherUIArrived(timeStr) {
   const hud = document.getElementById('watcherHUD');
   hud.classList.add('hud-arrived');
   
-  document.getElementById('watcherTravelerName').innerText = "Raj";
+  document.getElementById('watcherTravelerName').innerText = (window.__TRACKME_USER_NAME__ || 'Traveler');
   document.getElementById('watcherHeadingDetail').innerText = `${dict.watcherHeadingArrived} ${timeStr}`;
   
   // Set expired overlay HUD metrics

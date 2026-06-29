@@ -87,15 +87,17 @@ export default function RootLayout() {
         },
       }}
     >
-      {!user ? (
+      <Stack.Protected guard={!user}>
         <Stack.Screen
           name="auth"
           options={{
             headerShown: false,
-            animationEnabled: false,
+            animation: 'none',
           }}
         />
-      ) : (
+      </Stack.Protected>
+
+      <Stack.Protected guard={!!user}>
         <Stack.Screen
           name="map"
           options={{
@@ -103,7 +105,7 @@ export default function RootLayout() {
             headerShown: true,
           }}
         />
-      )}
+      </Stack.Protected>
     </Stack>
     </ErrorBoundary>
   )

@@ -34,6 +34,16 @@
             "imageWidth": 76
           }
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow TrackMe to use your location so your watcher can follow your journey, even while the app is in the background.",
+          "locationWhenInUsePermission": "Allow TrackMe to use your location to track your journey.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true,
+          "isIosBackgroundLocationEnabled": true
+        }
       ]
     ],
     "experiments": {
