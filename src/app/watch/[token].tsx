@@ -1,49 +1,88 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native'
-import { WebView } from 'react-native-webview'
 import { useLocalSearchParams } from 'expo-router'
+import { useEffect, useState } from 'react'
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 
-// React Native's fetch requires absolute URLs; configure the backend origin via
-// EXPO_PUBLIC_API_URL (empty string keeps relative URLs working on web).
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? ''
+import WatchMap from '../../components/watch-map'
+import {
+  getWatchSnapshot,
+  subscribeToPings,
+  type Ping,
+  type WatchSnapshot,
+} from '../../services/journeyLinks'
+
+// Great-circle distance in km between two coordinates.
+function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371
+  const dLat = ((bLat - aLat) * Math.PI) / 180
+  const dLng = ((bLng - aLng) * Math.PI) / 180
+  const lat1 = (aLat * Math.PI) / 180
+  const lat2 = (bLat * Math.PI) / 180
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2)
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
+const REFRESH_MS = 15_000
+const ASSUMED_SPEED_KMH = 25 // rough ETA basis until routing is wired
 
 export default function WatcherPage() {
   const params = useLocalSearchParams<{ token?: string }>()
   const token = typeof params.token === 'string' ? params.token : ''
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [valid, setValid] = useState<boolean | null>(null)
-  const webViewRef = useRef<WebView>(null)
 
+  const [loading, setLoading] = useState(true)
+  const [snapshot, setSnapshot] = useState<WatchSnapshot | null>(null)
+  const [ping, setPing] = useState<Ping | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  // Validate the token and load the first snapshot.
   useEffect(() => {
     if (!token) {
       setError('Invalid watch link')
-      setValid(false)
       setLoading(false)
       return
     }
     let cancelled = false
-    async function check() {
-      try {
-        const res = await fetch(`${API_BASE}/api/watch/${token}`)
-        if (!res.ok) throw new Error('Link not found or expired')
-        await res.json()
+    getWatchSnapshot(token)
+      .then((snap) => {
         if (cancelled) return
-        setValid(true)
-      } catch (e: any) {
-        if (!cancelled) {
-          setError(e.message ?? 'Invalid watch link')
-          setValid(false)
+        if (!snap) {
+          setError('This link has expired or been revoked.')
+          return
         }
-      } finally {
+        setSnapshot(snap)
+        if (snap.latest) setPing(snap.latest)
+      })
+      .catch(() => {
+        if (!cancelled) setError('Could not load the journey.')
+      })
+      .finally(() => {
         if (!cancelled) setLoading(false)
-      }
-    }
-    check()
+      })
     return () => {
       cancelled = true
     }
   }, [token])
+
+  // Live position via Realtime, plus a periodic snapshot refresh for status /
+  // arrival (and as a fallback if Realtime is unavailable).
+  const journeyId = snapshot?.journey_id
+  useEffect(() => {
+    if (!journeyId) return
+    const unsubscribe = subscribeToPings(journeyId, setPing)
+    const interval = setInterval(() => {
+      getWatchSnapshot(token)
+        .then((snap) => {
+          if (!snap) return
+          setSnapshot(snap)
+          setPing((prev) => prev ?? snap.latest)
+        })
+        .catch(() => {})
+    }, REFRESH_MS)
+    return () => {
+      unsubscribe()
+      clearInterval(interval)
+    }
+  }, [journeyId, token])
 
   if (loading) {
     return (
@@ -54,7 +93,7 @@ export default function WatcherPage() {
     )
   }
 
-  if (!valid) {
+  if (error || !snapshot) {
     return (
       <View style={styles.center}>
         <Text style={styles.title}>Link unavailable</Text>
@@ -65,28 +104,54 @@ export default function WatcherPage() {
     )
   }
 
+  const arrived = snapshot.status === 'completed' || snapshot.arrived_at != null
+  const hasDest = snapshot.destination_lat != null && snapshot.destination_lng != null
+  const distanceKm =
+    ping && hasDest
+      ? haversineKm(
+          ping.latitude,
+          ping.longitude,
+          snapshot.destination_lat as number,
+          snapshot.destination_lng as number,
+        )
+      : null
+  const etaMin = distanceKm != null ? Math.max(1, Math.round((distanceKm / ASSUMED_SPEED_KMH) * 60)) : null
+  const statusLabel = arrived ? 'Arrived' : ping ? 'Live' : 'Waiting…'
+
   return (
-    <WebView
-      ref={webViewRef}
-      source={{ uri: `${API_BASE}/watch/map?token=${token}` }}
-      startInLoadingState
-      renderLoading={() => (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#111" />
-          <Text style={styles.hint}>Loading live map…</Text>
+    <View style={styles.container}>
+      <View style={styles.mapWrap}>
+        <WatchMap
+          travelerLat={ping?.latitude ?? null}
+          travelerLng={ping?.longitude ?? null}
+          destinationLat={snapshot.destination_lat}
+          destinationLng={snapshot.destination_lng}
+        />
+      </View>
+
+      <View style={styles.statusBar}>
+        <View style={styles.chip}>
+          <Text style={styles.chipLabel}>Status</Text>
+          <Text style={styles.chipValue}>{statusLabel}</Text>
         </View>
-      )}
-      onError={(e) => {
-        Alert.alert('Map failed', e.nativeEvent.description)
-        setError('Map failed to load')
-      }}
-      javaScriptEnabled
-      domStorageEnabled
-    />
+        <View style={styles.chip}>
+          <Text style={styles.chipLabel}>ETA</Text>
+          <Text style={styles.chipValue}>{arrived ? '—' : etaMin != null ? `${etaMin} min` : '--'}</Text>
+        </View>
+        <View style={styles.chip}>
+          <Text style={styles.chipLabel}>Distance</Text>
+          <Text style={styles.chipValue}>
+            {arrived ? '—' : distanceKm != null ? `${distanceKm.toFixed(1)} km` : '--'}
+          </Text>
+        </View>
+      </View>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#ffffff' },
+  mapWrap: { flex: 1 },
   center: {
     flex: 1,
     alignItems: 'center',
@@ -94,16 +159,20 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: '#ffffff',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#111',
-    marginBottom: 12,
+  title: { fontSize: 24, fontWeight: '800', color: '#111', marginBottom: 12 },
+  hint: { fontSize: 14, color: '#666', marginTop: 8, textAlign: 'center' },
+  statusBar: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.92)',
   },
-  hint: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 8,
-    textAlign: 'center',
-  },
+  chip: { flex: 1, padding: 10, borderRadius: 10, backgroundColor: '#f2f2f2' },
+  chipLabel: { color: '#666', fontSize: 12 },
+  chipValue: { color: '#111', fontWeight: '700', fontSize: 16, marginTop: 4 },
 })

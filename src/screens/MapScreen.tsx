@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Share,
 } from 'react-native'
 import MapView, { Marker } from 'react-native-maps'
 import * as Location from 'expo-location'
@@ -15,6 +16,7 @@ import {
   getCurrentLocation,
 } from '../services/locationTracker'
 import { supabase } from '../services/supabase'
+import { createJourneyLink, revokeJourneyLinks, watchUrl } from '../services/journeyLinks'
 import { useAuthStore, useJourneyStore, useLocationStore } from '../store'
 import { Destination } from '../types/database'
 import DestinationPicker from './DestinationPicker'
@@ -24,6 +26,7 @@ export default function MapScreen() {
   const [tracking, setTracking] = useState(false)
   const [destinationPickerVisible, setDestinationPickerVisible] = useState(false)
   const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
   const { user } = useAuthStore()
   const { currentJourney, setCurrentJourney } = useJourneyStore()
   const { currentLocation, setCurrentLocation } = useLocationStore()
@@ -119,12 +122,33 @@ export default function MapScreen() {
         setCurrentJourney(data[0])
         await startBackgroundLocationTracking(user.id, data[0].id)
         setTracking(true)
+
+        // Create a tokenized watcher link so the journey can be shared.
+        try {
+          const link = await createJourneyLink(data[0].id)
+          setShareUrl(watchUrl(link.token))
+        } catch (linkErr) {
+          console.warn('Could not create watcher link:', linkErr)
+        }
+
         Alert.alert('Success', 'Journey started!')
       }
     } catch (err) {
       Alert.alert('Error', String(err))
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function shareJourney() {
+    if (!shareUrl) return
+    try {
+      await Share.share({
+        message: `Follow my live journey on TrackMe: ${shareUrl}`,
+        url: shareUrl,
+      })
+    } catch (err) {
+      Alert.alert('Error', String(err))
     }
   }
 
@@ -152,9 +176,17 @@ export default function MapScreen() {
         return
       }
 
+      // Revoke the watcher link so the shared page stops updating.
+      try {
+        await revokeJourneyLinks(currentJourney.id)
+      } catch (revokeErr) {
+        console.warn('Could not revoke watcher link:', revokeErr)
+      }
+
       await stopBackgroundLocationTracking()
       setCurrentJourney(null)
       setTracking(false)
+      setShareUrl(null)
       Alert.alert('Success', 'Journey stopped!')
     } catch (err) {
       Alert.alert('Error', String(err))
@@ -225,17 +257,24 @@ export default function MapScreen() {
             )}
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity
-            style={[styles.button, styles.stopButton]}
-            onPress={stopJourney}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Stop Journey</Text>
+          <>
+            {shareUrl && (
+              <TouchableOpacity style={styles.shareButton} onPress={shareJourney}>
+                <Text style={styles.shareButtonText}>🔗 Share live link</Text>
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, styles.stopButton]}
+              onPress={stopJourney}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Stop Journey</Text>
+              )}
+            </TouchableOpacity>
+          </>
         )}
       </View>
 
@@ -295,6 +334,18 @@ const styles = StyleSheet.create({
   },
   destinationButtonText: {
     color: '#208AEF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  shareButton: {
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: '#111111',
+    marginBottom: 12,
+  },
+  shareButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
