@@ -9,43 +9,38 @@ export default function RootLayout() {
   const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
-    checkSession()
-    subscribeToAuthChanges()
-  }, [])
+    async function checkSession() {
+      try {
+        setIsLoading(true)
+        const { data, error } = await supabase.auth.getSession()
 
-  async function checkSession() {
-    try {
-      setIsLoading(true)
-      const { data, error } = await supabase.auth.getSession()
-
-      if (error) {
-        console.error('Session check error:', error)
-        return
-      }
-
-      if (data.session) {
-        setSession(data.session)
-        if (data.session.user) {
-          setUser({
-            id: data.session.user.id,
-            email: data.session.user.email || '',
-            full_name: data.session.user.user_metadata?.full_name || null,
-            phone_number: data.session.user.user_metadata?.phone_number || null,
-            profile_picture_url: data.session.user.user_metadata?.avatar_url || null,
-            created_at: data.session.user.created_at,
-            updated_at: data.session.user.updated_at || new Date().toISOString(),
-          })
+        if (error) {
+          console.error('Session check error:', error)
+          return
         }
-      }
-    } catch (err) {
-      console.error('Failed to check session:', err)
-    } finally {
-      setIsLoading(false)
-      setInitialized(true)
-    }
-  }
 
-  function subscribeToAuthChanges() {
+        if (data.session) {
+          setSession(data.session)
+          if (data.session.user) {
+            setUser({
+              id: data.session.user.id,
+              email: data.session.user.email || '',
+              full_name: data.session.user.user_metadata?.full_name || null,
+              phone_number: data.session.user.user_metadata?.phone_number || null,
+              profile_picture_url: data.session.user.user_metadata?.avatar_url || null,
+              created_at: data.session.user.created_at,
+              updated_at: data.session.user.updated_at || new Date().toISOString(),
+            })
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check session:', err)
+      } finally {
+        setIsLoading(false)
+        setInitialized(true)
+      }
+    }
+
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setSession(session)
@@ -64,10 +59,12 @@ export default function RootLayout() {
       }
     })
 
+    checkSession()
+
     return () => {
       data?.subscription?.unsubscribe()
     }
-  }
+  }, [setIsLoading, setSession, setUser])
 
   if (!initialized) {
     return null
@@ -79,23 +76,25 @@ export default function RootLayout() {
       screenOptions={{
         headerShown: true,
         headerStyle: {
-          backgroundColor: '#208AEF',
+          backgroundColor: '#111111',
         },
-        headerTintColor: '#fff',
+        headerTintColor: '#ffffff',
         headerTitleStyle: {
           fontWeight: '600',
         },
       }}
     >
-      {!user ? (
+      <Stack.Protected guard={!user}>
         <Stack.Screen
           name="auth"
           options={{
             headerShown: false,
-            animationEnabled: false,
+            animation: 'none',
           }}
         />
-      ) : (
+      </Stack.Protected>
+
+      <Stack.Protected guard={!!user}>
         <Stack.Screen
           name="map"
           options={{
@@ -103,7 +102,15 @@ export default function RootLayout() {
             headerShown: true,
           }}
         />
-      )}
+      </Stack.Protected>
+
+      <Stack.Screen
+        name="watch/[token]"
+        options={{
+          title: 'Watcher',
+          headerShown: false,
+        }}
+      />
     </Stack>
     </ErrorBoundary>
   )

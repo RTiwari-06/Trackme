@@ -45,7 +45,7 @@ export default function HomeScreen() {
         </ThemedText>
 
         <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow title="Start" hint={<ThemedText type="code">Open Map to begin</ThemedText>} />
+          <HintRow title="Start" hint={<ThemedText type="code">Open Map, pick destination, start journey</ThemedText>} />
           <HintRow title="Dev tools" hint={getDevMenuHint()} />
         </ThemedView>
 

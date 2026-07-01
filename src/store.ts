@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { User, Journey, Destination } from '../types/database'
+import { Destination, Journey, User } from './types/database'
 
 // Minimal runtime validators (lightweight alternative to zod)
 function isNumber(n: any): n is number {
