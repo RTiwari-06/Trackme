@@ -32,16 +32,22 @@ interface AuthState {
   user: User | null
   session: Record<string, any> | null
   isLoading: boolean
+  // True while the user arrived via a password-recovery link and hasn't set a
+  // new password yet. Keeps the guard on the auth screen instead of the map.
+  passwordRecovery: boolean
   setUser: (user: User | null) => void
   setSession: (session: Record<string, any> | null) => void
   setIsLoading: (loading: boolean) => void
+  setPasswordRecovery: (value: boolean) => void
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   session: null,
   isLoading: false,
+  passwordRecovery: false,
   setUser: (user) => set({ user }),
+  setPasswordRecovery: (passwordRecovery) => set({ passwordRecovery }),
   setSession: (session) => {
     if (session && typeof session !== 'object') {
       console.warn('Rejected non-object session')

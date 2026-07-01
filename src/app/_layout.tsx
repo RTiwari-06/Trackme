@@ -23,7 +23,8 @@ function SignOutButton() {
 }
 
 export default function RootLayout() {
-  const { user, session, setUser, setSession, setIsLoading } = useAuthStore()
+  const { user, setUser, setSession, setIsLoading, passwordRecovery, setPasswordRecovery } =
+    useAuthStore()
   const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
@@ -59,7 +60,12 @@ export default function RootLayout() {
       }
     }
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      // A recovery link establishes a session too; flag it so the guard keeps
+      // the user on the auth screen to set a new password instead of the map.
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecovery(true)
+      }
       if (session?.user) {
         setSession(session)
         setUser({
@@ -74,6 +80,7 @@ export default function RootLayout() {
       } else {
         setSession(null)
         setUser(null)
+        setPasswordRecovery(false)
       }
     })
 
@@ -82,7 +89,7 @@ export default function RootLayout() {
     return () => {
       data?.subscription?.unsubscribe()
     }
-  }, [setIsLoading, setSession, setUser])
+  }, [setIsLoading, setSession, setUser, setPasswordRecovery])
 
   if (!initialized) {
     return null
@@ -102,7 +109,7 @@ export default function RootLayout() {
         },
       }}
     >
-      <Stack.Protected guard={!user}>
+      <Stack.Protected guard={!user || passwordRecovery}>
         <Stack.Screen
           name="auth"
           options={{
@@ -112,7 +119,7 @@ export default function RootLayout() {
         />
       </Stack.Protected>
 
-      <Stack.Protected guard={!!user}>
+      <Stack.Protected guard={!!user && !passwordRecovery}>
         <Stack.Screen
           name="map"
           options={{

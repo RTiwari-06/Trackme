@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -35,7 +35,7 @@ const C = {
   successBg: '#E7F6EE',
 }
 
-type Mode = 'signin' | 'signup' | 'reset'
+type Mode = 'signin' | 'signup' | 'reset' | 'update'
 type Banner = { kind: 'error' | 'success'; text: string } | null
 
 const COPY: Record<Mode, { title: string; subtitle: string; cta: string }> = {
@@ -53,6 +53,11 @@ const COPY: Record<Mode, { title: string; subtitle: string; cta: string }> = {
     title: 'Reset your password',
     subtitle: 'Enter your email and we’ll send a reset link.',
     cta: 'Send reset link',
+  },
+  update: {
+    title: 'Set a new password',
+    subtitle: 'Choose a new password to finish resetting your account.',
+    cta: 'Update password',
   },
 }
 
@@ -84,12 +89,23 @@ export default function AuthScreen() {
   const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [banner, setBanner] = useState<Banner>(null)
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
-  const [focused, setFocused] = useState<'email' | 'password' | null>(null)
-  const { setUser, setSession } = useAuthStore()
+  const [errors, setErrors] = useState<{ email?: string; password?: string; confirm?: string }>({})
+  const [focused, setFocused] = useState<'email' | 'password' | 'confirm' | null>(null)
+  const { setUser, setSession, passwordRecovery, setPasswordRecovery } = useAuthStore()
+
+  // Arriving via a recovery link switches the screen to "set a new password".
+  useEffect(() => {
+    if (passwordRecovery) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMode('update')
+      setBanner(null)
+      setErrors({})
+    }
+  }, [passwordRecovery])
 
   const copy = COPY[mode]
 
@@ -101,13 +117,18 @@ export default function AuthScreen() {
   }
 
   function validate(): boolean {
-    const next: { email?: string; password?: string } = {}
+    const next: { email?: string; password?: string; confirm?: string } = {}
     const mail = email.trim()
-    if (!mail) next.email = 'Enter your email.'
-    else if (!EMAIL_RE.test(mail)) next.email = 'That email doesn’t look right.'
+    if (mode !== 'update') {
+      if (!mail) next.email = 'Enter your email.'
+      else if (!EMAIL_RE.test(mail)) next.email = 'That email doesn’t look right.'
+    }
     if (mode !== 'reset') {
       if (!password) next.password = 'Enter your password.'
       else if (password.length < 6) next.password = 'Use at least 6 characters.'
+    }
+    if (mode === 'update' && password && confirm !== password) {
+      next.confirm = 'Passwords don’t match.'
     }
     setErrors(next)
     return Object.keys(next).length === 0
@@ -119,6 +140,20 @@ export default function AuthScreen() {
     const mail = email.trim()
     setLoading(true)
     try {
+      if (mode === 'update') {
+        const { error } = await supabase.auth.updateUser({ password })
+        if (error) {
+          setBanner({ kind: 'error', text: friendly(error.message) })
+          return
+        }
+        // Password changed; the recovery session is now a normal session, so
+        // clearing the flag lets the guard move on to the map.
+        setPassword('')
+        setConfirm('')
+        setPasswordRecovery(false)
+        return
+      }
+
       if (mode === 'reset') {
         const { error } = await supabase.auth.resetPasswordForEmail(mail, {
           redirectTo: Linking.createURL('/auth'),
@@ -208,7 +243,7 @@ export default function AuthScreen() {
                 >
                   <Text style={styles.backLinkText}>← Back to sign in</Text>
                 </Pressable>
-              ) : (
+              ) : mode === 'update' ? null : (
                 <View style={styles.segment}>
                   {(['signin', 'signup'] as const).map((m) => {
                     const active = mode === m
@@ -251,39 +286,43 @@ export default function AuthScreen() {
                 </View>
               )}
 
-              {/* Email */}
-              <Text style={styles.label}>Email</Text>
-              <TextInput
-                testID="auth-email"
-                style={[
-                  styles.input,
-                  focused === 'email' && styles.inputFocused,
-                  errors.email && styles.inputError,
-                ]}
-                placeholder="you@example.com"
-                placeholderTextColor={C.muted}
-                value={email}
-                onChangeText={(t) => {
-                  setEmail(t)
-                  if (errors.email) setErrors((e) => ({ ...e, email: undefined }))
-                }}
-                onFocus={() => setFocused('email')}
-                onBlur={() => setFocused(null)}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="email"
-                textContentType="emailAddress"
-                editable={!loading}
-                returnKeyType="next"
-              />
-              {errors.email && <Text style={styles.fieldError}>{errors.email}</Text>}
+              {/* Email (hidden when setting a new password) */}
+              {mode !== 'update' && (
+                <>
+                  <Text style={styles.label}>Email</Text>
+                  <TextInput
+                    testID="auth-email"
+                    style={[
+                      styles.input,
+                      focused === 'email' && styles.inputFocused,
+                      errors.email && styles.inputError,
+                    ]}
+                    placeholder="you@example.com"
+                    placeholderTextColor={C.muted}
+                    value={email}
+                    onChangeText={(t) => {
+                      setEmail(t)
+                      if (errors.email) setErrors((e) => ({ ...e, email: undefined }))
+                    }}
+                    onFocus={() => setFocused('email')}
+                    onBlur={() => setFocused(null)}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="email"
+                    textContentType="emailAddress"
+                    editable={!loading}
+                    returnKeyType="next"
+                  />
+                  {errors.email && <Text style={styles.fieldError}>{errors.email}</Text>}
+                </>
+              )}
 
               {/* Password (hidden in reset mode) */}
               {mode !== 'reset' && (
                 <>
                   <View style={styles.labelRow}>
-                    <Text style={styles.label}>Password</Text>
+                    <Text style={styles.label}>{mode === 'update' ? 'New password' : 'Password'}</Text>
                     {mode === 'signin' && (
                       <Pressable
                         onPress={() => switchMode('reset')}
@@ -304,7 +343,9 @@ export default function AuthScreen() {
                     <TextInput
                       testID="auth-password"
                       style={styles.passwordInput}
-                      placeholder={mode === 'signup' ? 'At least 6 characters' : 'Your password'}
+                      placeholder={
+                        mode === 'signin' ? 'Your password' : 'At least 6 characters'
+                      }
                       placeholderTextColor={C.muted}
                       value={password}
                       onChangeText={(t) => {
@@ -315,11 +356,11 @@ export default function AuthScreen() {
                       onBlur={() => setFocused(null)}
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
-                      autoComplete={mode === 'signup' ? 'new-password' : 'password'}
-                      textContentType={mode === 'signup' ? 'newPassword' : 'password'}
+                      autoComplete={mode === 'signin' ? 'password' : 'new-password'}
+                      textContentType={mode === 'signin' ? 'password' : 'newPassword'}
                       editable={!loading}
-                      returnKeyType="go"
-                      onSubmitEditing={handleSubmit}
+                      returnKeyType={mode === 'update' ? 'next' : 'go'}
+                      onSubmitEditing={mode === 'update' ? undefined : handleSubmit}
                     />
                     <Pressable
                       onPress={() => setShowPassword((s) => !s)}
@@ -331,6 +372,38 @@ export default function AuthScreen() {
                     </Pressable>
                   </View>
                   {errors.password && <Text style={styles.fieldError}>{errors.password}</Text>}
+                </>
+              )}
+
+              {/* Confirm (only when setting a new password) */}
+              {mode === 'update' && (
+                <>
+                  <Text style={styles.label}>Confirm new password</Text>
+                  <TextInput
+                    testID="auth-confirm"
+                    style={[
+                      styles.input,
+                      focused === 'confirm' && styles.inputFocused,
+                      errors.confirm && styles.inputError,
+                    ]}
+                    placeholder="Re-enter your new password"
+                    placeholderTextColor={C.muted}
+                    value={confirm}
+                    onChangeText={(t) => {
+                      setConfirm(t)
+                      if (errors.confirm) setErrors((e) => ({ ...e, confirm: undefined }))
+                    }}
+                    onFocus={() => setFocused('confirm')}
+                    onBlur={() => setFocused(null)}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoComplete="new-password"
+                    textContentType="newPassword"
+                    editable={!loading}
+                    returnKeyType="go"
+                    onSubmitEditing={handleSubmit}
+                  />
+                  {errors.confirm && <Text style={styles.fieldError}>{errors.confirm}</Text>}
                 </>
               )}
 
