@@ -1,8 +1,26 @@
 import React, { useEffect, useState } from 'react'
+import { Pressable, Text } from 'react-native'
 import { Stack } from 'expo-router'
 import { supabase } from '../services/supabase'
 import { useAuthStore } from '../store'
 import ErrorBoundary from '../components/ErrorBoundary'
+
+// Header action for the authenticated area. Signing out clears the Supabase
+// session; onAuthStateChange then nulls the user and the guard sends the
+// traveler back to the auth screen.
+function SignOutButton() {
+  return (
+    <Pressable
+      onPress={() => supabase.auth.signOut()}
+      accessibilityRole="button"
+      accessibilityLabel="Sign out"
+      hitSlop={8}
+      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingHorizontal: 4 })}
+    >
+      <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Sign out</Text>
+    </Pressable>
+  )
+}
 
 export default function RootLayout() {
   const { user, session, setUser, setSession, setIsLoading } = useAuthStore()
@@ -100,6 +118,7 @@ export default function RootLayout() {
           options={{
             title: 'TrackMe',
             headerShown: true,
+            headerRight: () => <SignOutButton />,
           }}
         />
       </Stack.Protected>
