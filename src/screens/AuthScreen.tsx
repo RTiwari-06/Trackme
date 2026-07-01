@@ -234,6 +234,7 @@ export default function AuthScreen() {
 
               {banner && (
                 <View
+                  testID="auth-banner"
                   style={[
                     styles.banner,
                     banner.kind === 'error' ? styles.bannerError : styles.bannerSuccess,
@@ -253,6 +254,7 @@ export default function AuthScreen() {
               {/* Email */}
               <Text style={styles.label}>Email</Text>
               <TextInput
+                testID="auth-email"
                 style={[
                   styles.input,
                   focused === 'email' && styles.inputFocused,
@@ -300,6 +302,7 @@ export default function AuthScreen() {
                     ]}
                   >
                     <TextInput
+                      testID="auth-password"
                       style={styles.passwordInput}
                       placeholder={mode === 'signup' ? 'At least 6 characters' : 'Your password'}
                       placeholderTextColor={C.muted}
@@ -332,6 +335,7 @@ export default function AuthScreen() {
               )}
 
               <Pressable
+                testID="auth-submit"
                 onPress={handleSubmit}
                 disabled={loading}
                 accessibilityRole="button"
