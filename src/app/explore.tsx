@@ -1,4 +1,4 @@
-﻿import { Image } from 'expo-image';
+import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,13 +47,13 @@ export default function WatchersScreen() {
 
         <ThemedView style={styles.sectionsWrapper}>
           <Collapsible title="Active Watchers">
-            <ThemedText type="small">People you've shared journeys with recently.</ThemedText>
+            <ThemedText type="small">People you&apos;ve shared journeys with recently.</ThemedText>
             <ThemedView type="backgroundElement" style={styles.listItem}>
-              <ThemedText type="smallBold">Mom</ThemedText>
+              <ThemedText type="smallBold">Mummy</ThemedText>
               <ThemedText type="small">+91 98765 43210 (WhatsApp)</ThemedText>
             </ThemedView>
             <ThemedView type="backgroundElement" style={styles.listItem}>
-              <ThemedText type="smallBold">Dad</ThemedText>
+              <ThemedText type="smallBold">Papa</ThemedText>
               <ThemedText type="small">+91 98765 43211 (SMS)</ThemedText>
             </ThemedView>
           </Collapsible>
@@ -61,11 +61,11 @@ export default function WatchersScreen() {
           <Collapsible title="Recent Journeys">
             <ThemedText type="small">Last journeys recorded on this device.</ThemedText>
             <ThemedView type="backgroundElement" style={styles.listItem}>
-              <ThemedText type="smallBold">Connaught Place → DU</ThemedText>
+              <ThemedText type="smallBold">कॉनॉट प्लेस → दिल्ली यूनिवर्सिटी</ThemedText>
               <ThemedText type="small">Duration: 25m • Distance: 6.2 km</ThemedText>
             </ThemedView>
             <ThemedView type="backgroundElement" style={styles.listItem}>
-              <ThemedText type="smallBold">Home → College</ThemedText>
+              <ThemedText type="smallBold">घर → कॉलेज</ThemedText>
               <ThemedText type="small">Duration: 27m • Distance: 6.8 km</ThemedText>
             </ThemedView>
           </Collapsible>

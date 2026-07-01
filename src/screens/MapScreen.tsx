@@ -16,61 +16,64 @@ import {
 } from '../services/locationTracker'
 import { supabase } from '../services/supabase'
 import { useAuthStore, useJourneyStore, useLocationStore } from '../store'
+import { Destination } from '../types/database'
+import DestinationPicker from './DestinationPicker'
 
 export default function MapScreen() {
   const [loading, setLoading] = useState(false)
   const [tracking, setTracking] = useState(false)
+  const [destinationPickerVisible, setDestinationPickerVisible] = useState(false)
+  const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null)
   const { user } = useAuthStore()
   const { currentJourney, setCurrentJourney } = useJourneyStore()
   const { currentLocation, setCurrentLocation } = useLocationStore()
 
   useEffect(() => {
-    initializeLocation()
-  }, [])
-
-  // Request foreground and background permissions and optionally register geofences
-  async function initializeLocation() {
-    try {
-      const { status: fgStatus } = await Location.requestForegroundPermissionsAsync()
-      if (fgStatus !== 'granted') {
-        Alert.alert('Permission Denied', 'Foreground location permission is required')
-        return
-      }
-
-      // Background permission request (Android/iOS separate flows)
-      const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync()
-      if (bgStatus !== 'granted') {
-        // Continue with foreground-only tracking but inform the user
-        Alert.alert(
-          'Background Permission Recommended',
-          'Allow background location so tracking continues when app is closed. You can enable it in app settings.'
-        )
-      }
-
-      const location = await getCurrentLocation()
-      if (location) {
-        setCurrentLocation(location)
-      }
-
-      // Example: register a geofence around current location (optional)
-      // NOTE: This is a strategy placeholder — implement production-ready geofence management
+    async function initializeLocation() {
       try {
-        const geofenceRegion = {
-          identifier: 'home-area',
-          latitude: location?.latitude || 0,
-          longitude: location?.longitude || 0,
-          radius: 200, // meters
+        const { status: fgStatus } = await Location.requestForegroundPermissionsAsync()
+        if (fgStatus !== 'granted') {
+          Alert.alert('Permission Denied', 'Foreground location permission is required')
+          return
         }
-        // expo-location doesn't provide an out-of-the-box geofence manager cross-platform.
-        // Consider platform-specific APIs or a lightweight in-app geofence check in the background task.
-        // e.g., save geofenceRegion to storage and evaluate in the background location task.
-      } catch (gErr) {
-        console.warn('Geofence setup skipped:', gErr)
+
+        // Background permission request (Android/iOS separate flows)
+        const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync()
+        if (bgStatus !== 'granted') {
+          // Continue with foreground-only tracking but inform the user
+          Alert.alert(
+            'Background Permission Recommended',
+            'Allow background location so tracking continues when app is closed. You can enable it in app settings.'
+          )
+        }
+
+        const location = await getCurrentLocation()
+        if (location) {
+          setCurrentLocation(location)
+        }
+
+        // Example: register a geofence around current location (optional)
+        // NOTE: This is a strategy placeholder — implement production-ready geofence management
+        try {
+          const geofenceRegion = {
+            identifier: 'home-area',
+            latitude: location?.latitude || 0,
+            longitude: location?.longitude || 0,
+            radius: 200, // meters
+          }
+          // expo-location doesn't provide an out-of-the-box geofence manager cross-platform.
+          // Consider platform-specific APIs or a lightweight in-app geofence check in the background task.
+          // e.g., save geofenceRegion to storage and evaluate in the background location task.
+        } catch (gErr) {
+          console.warn('Geofence setup skipped:', gErr)
+        }
+      } catch (err) {
+        console.error('Failed to initialize location:', err)
       }
-    } catch (err) {
-      console.error('Failed to initialize location:', err)
     }
-  }
+
+    initializeLocation()
+  }, [setCurrentLocation])
 
   async function startJourney() {
     if (!user) {
@@ -91,12 +94,17 @@ export default function MapScreen() {
         .insert([
           {
             user_id: user.id,
-            title: `Journey at ${new Date().toLocaleTimeString()}`,
+            title: selectedDestination
+              ? `Journey to ${selectedDestination.name}`
+              : `Journey at ${new Date().toLocaleTimeString()}`,
             start_location: {
               lat: location.latitude,
               lng: location.longitude,
               address: 'Current Location',
             },
+            destination_id: selectedDestination?.id ?? null,
+            destination_lat: selectedDestination?.latitude ?? null,
+            destination_lng: selectedDestination?.longitude ?? null,
             status: 'active',
           },
         ])
@@ -193,6 +201,17 @@ export default function MapScreen() {
           </Text>
         </View>
 
+        {!tracking && (
+          <TouchableOpacity
+            style={styles.destinationButton}
+            onPress={() => setDestinationPickerVisible(true)}
+          >
+            <Text style={styles.destinationButtonText}>
+              {selectedDestination ? `📍 ${selectedDestination.name}` : 'Pick Destination'}
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {!tracking ? (
           <TouchableOpacity
             style={[styles.button, styles.startButton]}
@@ -219,6 +238,12 @@ export default function MapScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      <DestinationPicker
+        visible={destinationPickerVisible}
+        onClose={() => setDestinationPickerVisible(false)}
+        onSelect={(d) => setSelectedDestination(d)}
+      />
     </View>
   )
 }
@@ -258,6 +283,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
+  },
+  destinationButton: {
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#208AEF',
+    backgroundColor: '#f0f7ff',
+    marginBottom: 12,
+  },
+  destinationButtonText: {
+    color: '#208AEF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   button: {
     padding: 15,

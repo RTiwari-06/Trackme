@@ -1,1 +1,11 @@
-﻿import { describe, it, expect } from 'vitest'\n\nfunction formatDistance(km:number){\n  return ${km.toFixed(1)} km\n}\n\ndescribe('formatDistance', ()=>{\n  it('formats km to one decimal', ()=>{\n    expect(formatDistance(6.234)).toBe('6.2 km')\n  })\n})\n
+import { describe, it, expect } from 'vitest'
+
+function formatDistance(km: number) {
+  return `${km.toFixed(1)} km`
+}
+
+describe('formatDistance', () => {
+  it('formats km to one decimal', () => {
+    expect(formatDistance(6.234)).toBe('6.2 km')
+  })
+})

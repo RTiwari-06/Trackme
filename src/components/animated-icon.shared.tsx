@@ -46,5 +46,5 @@ const styles = StyleSheet.create({
   iconContainer: { justifyContent: 'center', alignItems: 'center', width: 128, height: 128, zIndex: 100 },
   image: { position: 'absolute', width: 76, height: 71 },
   background: { borderRadius: 40, width: 128, height: 128, position: 'absolute' },
-  backgroundSolidColor: { ...StyleSheet.absoluteFillObject, backgroundColor: '#208AEF', zIndex: 1000 },
+  backgroundSolidColor: { ...StyleSheet.absoluteFill, backgroundColor: '#208AEF', zIndex: 1000 },
 })
